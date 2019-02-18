@@ -1,0 +1,4 @@
+"0","t0 <- read.csv('../input/c_0000.csv', stringsAsFactors = FALSE)
+"
+"2","Error in file(file, ""rt"") : cannot open the connection
+"

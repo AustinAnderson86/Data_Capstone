@@ -1,0 +1,465 @@
+---
+title: "Star Clustering"
+author: "Benjamin Lott"
+date: "January 7, 2017"
+output:
+  html_document: 
+    highlight: zenburn
+    toc: yes
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+options(scipen = 999)
+```
+
+<img src="https://cdn.spacetelescope.org/archives/images/large/heic0910g.jpg">
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+t0 <- read.csv('../input/c_0000.csv', stringsAsFactors = FALSE)
+t1 <- read.csv('../input/c_0100.csv', stringsAsFactors = FALSE)
+t2 <- read.csv('../input/c_0200.csv', stringsAsFactors = FALSE)
+t3 <- read.csv('../input/c_0300.csv', stringsAsFactors = FALSE)
+t4 <- read.csv('../input/c_0400.csv', stringsAsFactors = FALSE)
+t5 <- read.csv('../input/c_0500.csv', stringsAsFactors = FALSE)
+t6 <- read.csv('../input/c_0600.csv', stringsAsFactors = FALSE)
+t7 <- read.csv('../input/c_0700.csv', stringsAsFactors = FALSE)
+t8 <- read.csv('../input/c_0800.csv', stringsAsFactors = FALSE)
+t9 <- read.csv('../input/c_0900.csv', stringsAsFactors = FALSE)
+t10 <- read.csv('../input/c_1000.csv', stringsAsFactors = FALSE)
+t11 <- read.csv('../input/c_1100.csv', stringsAsFactors = FALSE)
+t12 <- read.csv('../input/c_1200.csv', stringsAsFactors = FALSE)
+t13 <- read.csv('../input/c_1300.csv', stringsAsFactors = FALSE)
+t14 <- read.csv('../input/c_1400.csv', stringsAsFactors = FALSE)
+t15 <- read.csv('../input/c_1500.csv', stringsAsFactors = FALSE)
+t16 <- read.csv('../input/c_1600.csv', stringsAsFactors = FALSE)
+t17 <- read.csv('../input/c_1700.csv', stringsAsFactors = FALSE)
+t18 <- read.csv('../input/c_1800.csv', stringsAsFactors = FALSE)
+```
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+library(dplyr)
+library(DT)
+library(Rtsne)
+library(ggplot2)
+library(highcharter)
+library(ggfortify)
+library(cluster)
+library(plotly)
+library(magrittr)
+library(lfda)
+library(RColorBrewer)
+library(scatterplot3d)
+library(animation)
+library(viridis)
+library(scales)
+library(astsa)
+library(forecast)
+library(TTR)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+t0$time = 0
+t1$time = 1
+t2$time = 2
+t3$time = 3
+t4$time = 4
+t5$time = 5
+t6$time = 6
+t7$time = 7
+t8$time = 8
+t9$time = 9
+t10$time = 10
+t11$time = 11
+t12$time = 12
+t13$time = 13
+t14$time = 14
+t15$time = 15
+t16$time = 16
+t17$time = 17
+t18$time = 18
+```
+
+```{r  echo=FALSE}
+#combining all the data and removing pieces
+all_stars <- do.call("rbind", list(t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15,t16,t17,t18))
+rm(t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15,t16,t17,t18)
+```
+
+```{r echo=FALSE, fig.width=10, fig.height=10, message=FALSE, warning=FALSE}
+#Animation Code
+animation::saveGIF({
+  for(i in 0:18){
+    all_stars_anim <- all_stars
+    all_stars_anim <- filter(all_stars_anim, time == i)
+    (scatterplot3d(all_stars_anim$x,
+                   xlim= c(-60,60),
+                   xlab= "X Axis Direction",
+                   all_stars_anim$y,
+                   ylim=c(-80, 50),
+                   ylab= "Y Axis Direction",
+                   all_stars_anim$z,
+                   zlim = c(-60, 70),
+                   zlab="Z Axis Direction",
+                   #highlight.3d = TRUE,
+                   color=rainbow(length(all_stars_anim$x)),
+                   angle = 120,
+                   col.axis = "blue",
+                   col.grid = "lightblue",
+                   cex.axis = 1.3,
+                   cex.lab = 1.1,
+                   main = paste("Star Movement at time: ", unique(all_stars_anim$time), sep=""),
+                   pch = 20))
+  }
+},interval = 1, movie.name = "stars.gif", convert = "convert", ani.width = 800, ani.height = 600)
+```
+## Animation of Stars Moving Over Time
+
+![](stars.gif)
+
+<br>
+
+## Examining The Difference Between Velocity Speeds
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10,fig.height=14}
+
+all_stars_min_med_max <- all_stars
+all_stars_min_med_max = do.call("cbind",
+                                 list(all_stars_min_med_max,
+                                   (sapply(list(all_stars_min_med_max$vx,
+                                                all_stars_min_med_max$vy,
+                                                all_stars_min_med_max$vz), function(x) x*1) %>%
+                                                tbl_df() %>%
+                                                apply(1, min) %>%
+                                                tbl_df()),
+                                   (sapply(list(all_stars_min_med_max$vx,
+                                                all_stars_min_med_max$vy,
+                                                all_stars_min_med_max$vz), function(x) x*1) %>%
+                                                tbl_df() %>%
+                                                apply(1, median) %>%
+                                                tbl_df()),
+                                   (sapply(list(all_stars_min_med_max$vx,
+                                                all_stars_min_med_max$vy,
+                                                all_stars_min_med_max$vz), function(x) x*1) %>%
+                                                tbl_df() %>%
+                                                apply(1, max) %>%
+                                                tbl_df())
+                                   )
+                                )
+                                
+colnames(all_stars_min_med_max) <- c("x", "y", "z", "vx", "vy", "vz", "m", "id", "time", "Minimum", "Median", "Maximum")
+all_stars_min_med_max <- all_stars_min_med_max %>% select(c(id, time, Minimum, Median, Maximum))
+all_stars_min_med_max$Diff = all_stars_min_med_max$Maximum - all_stars_min_med_max$Minimum
+
+all_stars_m_m_m <- filter(all_stars_min_med_max, time == 0) %>% arrange(desc(Diff)) 
+
+set.seed(1234)
+data <- sample(2, nrow(all_stars_m_m_m), replace = T, prob = c(0.0015, 0.998))
+all_stars_m_m_m <- all_stars_m_m_m[data == 1,]
+all_stars_m_m_m <- lapply(all_stars_m_m_m[,1:ncol(all_stars_m_m_m)], as.numeric)
+all_stars_m_m_m %<>% tbl_df()
+
+for(i in 1:18){
+  temp <- all_stars_min_med_max
+  temp %<>% filter(time == i)
+  temp %<>% arrange(desc(Diff)) 
+  
+  set.seed(1234)
+  data <- sample(2, nrow(temp), replace = T, prob = c(0.0015, 0.998))
+  temp <- temp[data == 1,]
+  temp <- lapply(temp[,1:ncol(temp)], as.numeric)
+  temp %<>% tbl_df()
+  
+  all_stars_m_m_m <- rbind(all_stars_m_m_m, temp)
+}
+
+
+number_ticks <- function(n) {function(limits) pretty(limits, n)}
+
+ggplot(all_stars_m_m_m, aes(x = all_stars_m_m_m$id,
+               ymin = all_stars_m_m_m$Minimum,
+               ymax = all_stars_m_m_m$Maximum,
+               color = all_stars_m_m_m$Median)) + 
+  geom_linerange(size = 1.3, alpha = 0.75) +
+  scale_color_viridis(NULL, option = "C") +
+  scale_x_discrete(labels = all_stars_m_m_m$time,
+                   breaks = number_ticks("time")) + 
+  ylim(-2, 2) + 
+  labs(title = "Cluster Velocity Difference Radial Graph",
+       caption = "Difference in Max and Min Velocity Range",
+       x = NULL, y = NULL) +
+  coord_polar() + 
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  theme(plot.caption = element_text(hjust = 0.5)) +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+* You are looking at a radial version of randomly sampled differences between the maximum and minimum velocity values (in every direction: x,y,z).
+* My Goal was to see if there was any sections that had a large chunk of differences in the velocity values, but it seems pretty random throughout.
+
+```{r}
+all_stars_2 <- (all_stars %>%
+    ## Remove NAs
+    na.omit() %>%
+    ## Transform variables to factor
+    mutate_each(funs(factor)) %>% 
+    ## Remove constant variables (only one factor level)
+    select(which(sapply(., nlevels) > 1))
+)
+```
+
+```{r}
+set.seed(1234)
+data <- sample(2, nrow(all_stars_2), replace = T, prob = c(0.001, 0.999))
+train <- all_stars_2[data == 1,]
+train <- lapply(train[,1:ncol(train)], as.numeric)
+train %<>% tbl_df()
+```
+
+## Clustering{.tabset .tabset-fade .tabset-pills}
+
+### K-means
+```{r message=FALSE, echo=FALSE,fig.width=12, fig.height=12}
+autoplot(kmeans(train[-8], 18), data = train, frame = TRUE)
+```
+
+### Clara
+```{r message=FALSE, echo=FALSE,fig.width=12, fig.height=12}
+autoplot(clara(train[-8], 18), frame = TRUE)
+```
+
+### Pam
+```{r message=FALSE, echo=FALSE,fig.width=12, fig.height=12}
+autoplot(pam(train[-8], 18), frame = TRUE)
+```
+
+### LFDA
+* Local Fisher Discriminant Analysis (LFDA)
+```{r message=FALSE, echo=FALSE,fig.width=12, fig.height=12}
+model <- lfda(train[-8], train[, 8], 4, metric="plain")
+autoplot(model, data = train, frame = TRUE, frame.colour = 'time') +
+  scale_color_gradient2(low="orange", mid="blue", 
+      high="red", midpoint=55) + theme_minimal()
+```
+
+### KLFDA
+* Kernel Local Fisher Discriminant Analysis
+```{r  message=FALSE, echo=FALSE,fig.width=12, fig.height=12}
+model <- klfda(kmatrixGauss(train[-8]), train[, 8], 4, metric="plain")
+autoplot(model, data = train, frame = TRUE, frame.colour = 'time')
+```
+
+### SELF
+* Semi-supervised Local Fisher Discriminant Analysis
+```{r message=FALSE, echo=FALSE,fig.width=12, fig.height=12}
+model <- self(train[-8], train[, 8], beta = 0.1, r = 3, metric="plain")
+autoplot(model, data = train, frame = TRUE, frame.colour = 'time') + 
+  scale_color_gradient2(low="white", mid="blue", 
+      high="red", midpoint=55) + theme_minimal()
+```
+
+### General PCA
+```{r echo=FALSE, fig.width=12, fig.height=12}
+autoplot(prcomp(train[,1:7]), data = train, colour = 'time')
+```
+
+### t-SNE
+• t-Distributed Stochastic Neighbor Embedding using a Barnes-Hut
+```{r message=FALSE, echo=FALSE, warning=FALSE, fig.width=12, fig.height=12}
+data <- sample(2, nrow(all_stars_2), replace = T, prob = c(0.02, 0.98))
+train <- all_stars_2[data == 1,]
+train <- lapply(train[,1:ncol(train)], as.numeric)
+train %<>% tbl_df()
+
+set.seed(424)
+tsne = Rtsne::Rtsne(as.matrix(train),
+                    check_duplicates=FALSE,
+                    pca=TRUE, 
+                    perplexity=10,
+                    theta=1,
+                    max_iter = 500,
+                    verbose = FALSE,
+                    dims=2)
+                    
+train$time %<>% as.factor()
+embedding = as.data.frame(tsne$Y)
+embedding$Class = train$time
+g = ggplot(embedding, aes(x=V1, y=V2, color=Class)) +
+  geom_point(size=1.25) +
+  guides(colour=guide_legend(override.aes=list(size=6))) +
+  xlab("") + ylab("") +
+  ggtitle("t-SNE 2D Embedding of 'time' Outcome") +
+  theme_light(base_size=20) +
+  theme(axis.text.x=element_blank(),
+        axis.text.y=element_blank())
+g 
+                    
+```
+
+### t-SNE Iteration Costs Graph
+
+```{r  warning=FALSE,message=FALSE,fig.width=9,fig.height=8, echo=FALSE}
+tsne_itercost <- tbl_df(tsne$itercosts)
+tsne_itercost$iteration = 1:nrow(tsne_itercost)
+options(scipen = 999)
+
+for(i in 2:nrow(tsne_itercost)){
+  tsne_itercost$difference[i] <- abs(tsne_itercost$value[i] - tsne_itercost$value[i-1])
+}
+names(tsne_itercost) <- c("Error_Value", "Iteration", "Change_in_Error_Value")
+
+number_ticks <- function(n) {function(limits) pretty(limits, n)}
+
+(ggplot(tsne_itercost, aes(x=Iteration, Error_Value)) +
+  geom_point(aes(color='red')) +
+    geom_line(mapping = aes(x=Iteration, y=Change_in_Error_Value), size=0.1, color="blue") +
+    scale_x_continuous(breaks = number_ticks(nrow(tsne_itercost))) +
+    theme(plot.subtitle = element_text(vjust = 1), 
+      plot.caption = element_text(vjust = 1), 
+      plot.title = element_text(family = "serif", 
+        size = 14, face = "bold", colour = "cornsilk4", 
+        hjust = 0.5), legend.position = "none") +
+    labs(title = "t-SNE: Iteration Costs vs. Error Value", 
+    colour = NULL)
+    
+  )  %>%
+  ggplotly()
+```
+
+## Time Series Analysis
+```{r}
+all_stars$date = all_stars$time
+all_stars$date %<>% as.character()
+for(i in 0:18){
+    all_stars[,"date"][all_stars[,"date"] == i] = (1997+i)
+}
+all_stars_no_negs <- all_stars
+all_stars_no_negs$x = all_stars_no_negs$x + 100
+all_stars_no_negs$y = all_stars_no_negs$y + 100
+all_stars_no_negs$z = all_stars_no_negs$z + 100
+all_stars_no_negs <- all_stars_no_negs %>% select(c(time,x,y,z,id)) 
+id_1 <- filter(all_stars_no_negs, id == 1)
+
+id_1_x <- id_1 %>% select(c(time,x))
+log.id_1_x <- c(id_1_x$time, log(id_1_x$x)) 
+names(log.id_1_x) <- c("time", "log.x")
+set.seed(512)
+fit <- lm(id_1_x$x~id_1_x$time)
+```
+
+
+## X-Coordinates Based Time Series of id = 1{.tabset .tabset-fade .tabset-pills}
+
+### ACF
+
+```{r echo = FALSE, fig.width=10,fig.height=10}
+acf_id_1_x <- acf(diff(fit$residuals), plot=FALSE)
+acf_one <-
+(hchart(acf_id_1_x) %>%
+  hc_subtitle(text = "Star Clusters in X-Direction") %>%
+  hc_title(text = "ACF of Fit Residuals (at time 1)") %>%
+  hc_yAxis(minorGridLineWidth = 0, gridLineWidth = 0,
+           plotBands = list(
+             list(from = -0.5, to = -1.0, color = "rgba(255, 217, 112, 1)",
+                  label = list(text = "Significance Limits")),
+             list(from = 0.5, to = 1, color = "rgba(255, 217, 112, 1)",
+                  label = list(text = "Significance Limits", color= "rgba(255, 255, 255, 1)")),
+             list(from = 0.0, to = 0.0, color = "rgba(0, 0, 0, 0.1)")
+             )) %>%
+  hc_add_theme(hc_theme_db())
+)
+
+
+acf_one
+```
+
+* Now let's take a look at the shape of the ACF as if it were a spline
+* It looks like it is coming along the lines of being sinusodial, so could be an AR(1) or AR(2)
+* However, it is difficult to tell because the second PACF value is -0.46, which is very close to being significant.
+```{r echo = FALSE, fig.width=10,fig.height=10} 
+acf_trace <- cbind(1:13,acf_id_1_x$acf) %>% tbl_df()
+highchart() %>%
+  hc_xAxis(categories = acf_trace$V1,
+           title = list(text="Lag")) %>%
+  hc_add_series(name = "ACF Trace", data = acf_trace$V2,type="spline") %>% 
+  hc_yAxis(title = list(text="ACF Value")) %>%
+  hc_add_theme(hc_theme_538())
+```
+
+
+### PACF
+
+```{r echo = FALSE, fig.width=10,fig.height=10}
+pacf_id_1_x <- pacf(diff(fit$residuals), plot = FALSE)
+
+pacf_one <-
+(hchart(pacf_id_1_x) %>%
+  hc_subtitle(text = "Star Clusters in X-Direction") %>%
+  hc_title(text = "PACF of Fit Residuals (at time 1)") %>%
+    hc_yAxis(minorGridLineWidth = 0, gridLineWidth = 0,
+           plotBands = list(
+             list(from = -0.5, to = -1.0, color = "rgba(255, 217, 112, 1)",
+                  label = list(text = "Significance Limits", color="rgba(255, 255, 255, 1)")),
+             list(from = 0.5, to = 1, color = "rgba(255, 255, 255, 1)",
+                  label = list(text = "Significance Limits", color="white")),
+             list(from = 0.0, to = 0.005, color = "rgba(255, 255, 255, 1)")
+             )) %>%
+  hc_add_theme(hc_theme_db())
+)
+pacf_one
+```
+
+### Time Series 
+```{r echo=FALSE, fig.width=10,fig.height=12}
+x.ts <- ts(id_1_x$x, start=1997, end=2015)
+x_df <- c(1:18) %>% tbl_df()
+
+hchart(x.ts) %>%
+  hc_xAxis(title = list(text="Time")) %>%
+  hc_yAxis(title = list(text="TS Value")) %>%
+  hc_title(text = "X-Directional Time Series", align="center") %>%
+  hc_add_theme(hc_theme_economist())
+```
+
+### ARIMA
+
+```{r echo = FALSE, fig.width=10,fig.height=10} 
+time_x <- x.ts
+x.forecast <- forecast::forecast(forecast::ets(time_x, beta=.4), h=20, level=95)
+set.seed(512)
+auto.arima(time_x) 
+```
+
+
+
+```{r echo = FALSE, fig.width=10,fig.height=10} 
+hchart(forecast(auto.arima(time_x)))
+```
+
+* Just as I suspected, according to the auto.arima function, we have an AR(1) model, but I'm not so sure to be honest.
+* Sometimes, AR(1), AR(2) can be similarly related to another model, say ARIMA(2,0,1). So let's see how that graph looks and take a look at some of those results.
+
+```{r}
+temp <- sarima.for(time_x, n.ahead = 10, p=2, d=0,q=1)
+
+```
+
+```{r echo = FALSE, fig.width=10,fig.height=10} 
+time_x %>%
+    ALMA(2) %>%
+    Arima(order=c(2,0,1)) %>%
+    forecast() %>%
+    hchart() %>%
+    hc_add_theme(hc_theme_flatdark())
+```
+
+I'm running this through an Arnaud Legoux Moving Average (ALMA) for smoothing. It's looking okay, Time to run a Ljung-Box and check some of it's results rather than eyeball it.
+
+<br>
+

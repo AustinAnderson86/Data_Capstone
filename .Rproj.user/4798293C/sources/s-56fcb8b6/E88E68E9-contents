@@ -1,0 +1,52 @@
+---
+title: "Airplane crashs"
+author: "QUARC"
+date: "2/4/2019"
+output: html_document
+---
+
+```{r}
+library(mosaic)
+library(tidyverse)
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+summary(Airplane_Crashes_and_Fatalities_Since_1908)
+str(Airplane_Crashes_and_Fatalities_Since_1908)
+```
+
+##Discovery 
+
+```{r}
+Airplane_Crashes_and_Fatalities_Since_1908$Location
+```
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+ggplot(data = Airplane_Crashes_and_Fatalities_Since_1908, aes(x = Date, y = Aboard))+geom_point(aes(color = Fatalities))
+
+
+ggplot(data = Airplane_Crashes_and_Fatalities_Since_1908, aes(x = Time, y = Aboard))+geom_point(aes(color = Fatalities))
+
+ggplot(data = Airplane_Crashes_and_Fatalities_Since_1908, aes(x = Time,, y = Fatalities))+geom_point(aes(color = Date))
+
+ggplot(data = Airplane_Crashes_and_Fatalities_Since_1908, aes(Location, fill = Time)) + geom_bar(position = "fill") +  facet_wrap(~Date)
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
